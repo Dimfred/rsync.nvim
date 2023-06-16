@@ -5,6 +5,7 @@
 
 local project = require("rsync.project")
 local log = require("rsync.log")
+local config = require("rsync.config")
 
 FileSyncStates = {
     DONE = 0,
@@ -28,7 +29,11 @@ local function safe_sync(command, on_start, on_exit)
         on_stderr = function(_, output, _)
             -- skip when function reports empty error
             if vim.inspect(output) ~= vim.inspect({ "" }) then
-                log.info(string.format("safe_sync command: '%s', on_stderr: '%s'", command, vim.inspect(output)))
+                if config.values.log then
+                    log.info(string.format("safe_sync command: '%s', on_stderr: '%s'", command, vim.inspect(output)))
+                end
+
+                config.values.on_error(output, command)
             end
         end,
 
@@ -36,8 +41,13 @@ local function safe_sync(command, on_start, on_exit)
         on_exit = function(_, code, _)
             on_exit(code)
             if code ~= 0 then
-                log.info(string.format("safe_sync command: '%s', on_exit with code = '%s'", command, code))
+                if config.values.log then
+                    log.info(string.format("safe_sync command: '%s', on_exit with code = '%s'", command, code))
+                end
+
             end
+
+            config.values.on_exit(code, command)
         end,
         stdout_buffered = true,
         stderr_buffered = true,
@@ -78,9 +88,9 @@ function sync.sync_up()
         end
         local command = compose_sync_up_command(config_table.project_path, config_table.remote_path)
         safe_sync(command, function(res)
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.project.state = ProjectSyncStates.SYNC_UP
-                _RsyncProjectConfigs[config.project_path].status.project.job_id = res
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.project.state = ProjectSyncStates.SYNC_UP
+                _RsyncProjectConfigs[project_config.project_path].status.project.job_id = res
             end)
         end, function(code)
             -- ignore stopped job. (SIGTERM or SIGKILL)
@@ -91,10 +101,10 @@ function sync.sync_up()
                 log.error(string.format("on_exit called with code: '%d'", code))
             end
 
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.project.state = ProjectSyncStates.DONE
-                _RsyncProjectConfigs[config.project_path].status.project.code = code
-                _RsyncProjectConfigs[config.project_path].status.project.job_id = -1
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.project.state = ProjectSyncStates.DONE
+                _RsyncProjectConfigs[project_config.project_path].status.project.code = code
+                _RsyncProjectConfigs[project_config.project_path].status.project.job_id = -1
             end)
         end)
     end)
@@ -133,15 +143,15 @@ function sync.sync_up_file(filename)
             .. rpath_no_filename
 
         safe_sync(command, function(channel_id)
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.file.state = FileSyncStates.SYNC_UP_FILE
-                _RsyncProjectConfigs[config.project_path].status.file.job_id = channel_id
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.file.state = FileSyncStates.SYNC_UP_FILE
+                _RsyncProjectConfigs[project_config.project_path].status.file.job_id = channel_id
             end)
         end, function(code)
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.file.state = FileSyncStates.DONE
-                _RsyncProjectConfigs[config.project_path].status.file.job_id = -1
-                _RsyncProjectConfigs[config.project_path].status.file.code = code
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.file.state = FileSyncStates.DONE
+                _RsyncProjectConfigs[project_config.project_path].status.file.job_id = -1
+                _RsyncProjectConfigs[project_config.project_path].status.file.code = code
             end)
         end)
     end)
@@ -190,9 +200,9 @@ function sync.sync_down()
         local command =
             compose_sync_down_command(config_table.remote_includes, config_table.project_path, config_table.remote_path)
         safe_sync(command, function(res)
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.project.state = ProjectSyncStates.SYNC_DOWN
-                _RsyncProjectConfigs[config.project_path].status.project.job_id = res
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.project.state = ProjectSyncStates.SYNC_DOWN
+                _RsyncProjectConfigs[project_config.project_path].status.project.job_id = res
             end)
         end, function(code)
             -- ignore stopped job.
@@ -203,10 +213,10 @@ function sync.sync_down()
                 log.error(string.format("on_exit called with code: '%d'", code))
             end
 
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.project.state = ProjectSyncStates.DONE
-                _RsyncProjectConfigs[config.project_path].status.project.code = code
-                _RsyncProjectConfigs[config.project_path].status.project.job_id = -1
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.project.state = ProjectSyncStates.DONE
+                _RsyncProjectConfigs[project_config.project_path].status.project.code = code
+                _RsyncProjectConfigs[project_config.project_path].status.project.job_id = -1
             end)
         end)
     end)
@@ -239,15 +249,15 @@ function sync.sync_down_file(filename)
         end
         local command = compose_sync_down_file_command(filename, config_table.project_path, config_table.remote_path)
         safe_sync(command, function(channel_id)
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.file.state = FileSyncStates.SYNC_DOWN_FILE
-                _RsyncProjectConfigs[config.project_path].status.file.job_id = channel_id
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.file.state = FileSyncStates.SYNC_DOWN_FILE
+                _RsyncProjectConfigs[project_config.project_path].status.file.job_id = channel_id
             end)
         end, function(code)
-            project:run(function(config)
-                _RsyncProjectConfigs[config.project_path].status.file.state = FileSyncStates.DONE
-                _RsyncProjectConfigs[config.project_path].status.file.job_id = -1
-                _RsyncProjectConfigs[config.project_path].status.file.code = code
+            project:run(function(project_config)
+                _RsyncProjectConfigs[project_config.project_path].status.file.state = FileSyncStates.DONE
+                _RsyncProjectConfigs[project_config.project_path].status.file.job_id = -1
+                _RsyncProjectConfigs[project_config.project_path].status.file.code = code
                 vim.api.nvim_buf_call(buf, function()
                     vim.cmd.e()
                 end)

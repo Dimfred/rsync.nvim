@@ -4,12 +4,13 @@
 local rsync_nvim = require("rsync_nvim")
 local path = require("plenary.path")
 local log = require("rsync.log")
+local config = require("rsync.config")
 
 local project = {}
 
 _RsyncProjectConfigs = _RsyncProjectConfigs or {}
 
-local config_path = ".nvim/rsync.toml"
+local config_path = config.values.project_config_path
 
 --- try find a config file.
 -- @return string, or nil
@@ -64,6 +65,12 @@ function project.get_config_table()
     -- decode config file and save to global table
     table = get_config(config_file_path)
     if table ~= nil then
+        -- fix the path if it is missing a /
+        local last_char = string.sub(table.remote_path, -1)
+        if last_char ~= nil and last_char ~= "/" then
+            table.remote_path = table.remote_path .. "/"
+        end
+
         table.project_path = project_path
         table.status = {
             file = {
@@ -81,6 +88,19 @@ function project.get_config_table()
         return table
     end
 end
+
+-- Reload project configuration
+function project:reload_config()
+    local config_file_path = get_config_file()
+    -- if project does not contain config file
+    if config_file_path == nil then
+        return
+    end
+
+    local project_path = get_project_path(config_file_path)
+    _RsyncProjectConfigs[project_path] = nil
+end
+
 
 --- Run passed function if project config is found
 --- @param fn function fuction to call if config is found

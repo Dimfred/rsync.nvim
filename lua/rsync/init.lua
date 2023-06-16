@@ -16,15 +16,27 @@ vim.api.nvim_create_autocmd({ "BufEnter" }, {
             if config_table == nil then
                 return
             end
-            vim.api.nvim_create_autocmd({ "BufWritePost" }, {
-                callback = function()
-                    sync.sync_up()
-                end,
-                group = rsync_nvim,
-                buffer = vim.api.nvim_get_current_buf(),
-            })
+
+            if config.values.auto_sync then
+                vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+                    callback = function()
+                        sync.sync_up()
+                    end,
+                    group = rsync_nvim,
+                    buffer = vim.api.nvim_get_current_buf(),
+                })
+            end
             vim.b.rsync_init = 1
         end
+    end,
+    group = rsync_nvim,
+})
+
+-- Reloads the project configuration, when the file is saved
+vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+    pattern = "*" .. config.values.project_config_path,
+    callback = function()
+        vim.cmd("RsyncReloadProjectConfig")
     end,
     group = rsync_nvim,
 })
@@ -50,12 +62,24 @@ vim.api.nvim_create_user_command("RsyncUpFile", function()
 end, {})
 
 vim.api.nvim_create_user_command("RsyncLog", function()
-    local log_file = string.format("%s/%s.log", vim.api.nvim_call_function("stdpath", { "cache" }), log.plugin)
+    local log_file = string.format(
+        "%s/%s.log",
+        vim.api.nvim_call_function("stdpath", { "cache" }),
+        log.plugin
+    )
     vim.cmd.tabe(log_file)
+end, {})
+
+vim.api.nvim_create_user_command("RsyncConfig", function()
+    print(vim.inspect(config))
 end, {})
 
 vim.api.nvim_create_user_command("RsyncProjectConfig", function()
     print(vim.inspect(project.get_config_table()))
+end, {})
+
+vim.api.nvim_create_user_command("RsyncReloadProjectConfig", function()
+    project.reload_config()
 end, {})
 
 --- get current sync status of project

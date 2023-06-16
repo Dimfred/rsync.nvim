@@ -30,6 +30,12 @@ describe("rsync", function()
             assert.equals(status, true)
             assert.equals(err, "")
         end)
+
+        it("RsyncConfig", function()
+            local status, err = pcall(vim.cmd.RsyncProjectConfig)
+            assert.equals(status, true)
+            assert.equals(err, "")
+        end)
     end)
 
     describe("missing rsync.toml", function()

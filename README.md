@@ -39,6 +39,19 @@ remote_includes = "build.log"
 remote_includes = ["build.log", "build/generated.json"]
 ```
 
+```lua
+-- default config
+local rsync = require("rsync")
+rsync.setup({
+    project_config_path = ".nvim/rsync.toml",
+    auto_sync = true,
+    log = true,
+    on_exit = function(code, command) end,
+    on_error = function(output, command) end
+})
+
+```
+
 ## Commands
 
 Name               | Action
@@ -51,3 +64,15 @@ RsyncLog           | Open log file for rsync.nvim.
 RsyncProjectConfig | Print out current project config.
 
 *: Files which are excluded are, everything in .gitignore and .nvim folder.
+
+## Dealing with password protected ssh-keys
+
+```
+# install a ssh-askpass helper e.g. x11-ssh-askpass
+
+# shows you whether your key is present in the agent
+ssh-add -l | grep <ED25519/RSA>
+
+# askpass will popup
+vim.cmd("!ssh-add ~/.ssh/id_...")
+```
